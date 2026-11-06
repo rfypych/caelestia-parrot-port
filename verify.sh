@@ -127,10 +127,19 @@ qs_plugin="$(find "$QMLDIR_ABS/Caelestia" -maxdepth 1 -name '*.so' 2>/dev/null |
 # failure shipped once: qml_register_types_Caelestia, caused by the
 # core library's unversioned symlink shadowing the QML backing
 # library). Probe a real dlopen with RTLD_NOW via python3 (the kit
-# already requires python3 >= 3.13).
+# already requires python3 >= 3.13). The Qt Quick libraries are
+# preloaded first, mimicking the quickshell host process: the backing
+# library relies on the host for Qt Quick symbols and does not link
+# them itself.
 plugin_so="$QMLDIR_ABS/Caelestia/libcaelestiaplugin.so"
 if [ -f "$plugin_so" ]; then
-    if python3 -c 'import ctypes, os, sys; ctypes.CDLL(sys.argv[1], mode=os.RTLD_NOW | os.RTLD_LOCAL)' "$plugin_so" 2>/dev/null; then
+    if python3 -c '
+import ctypes, os, sys
+g = os.RTLD_NOW | os.RTLD_GLOBAL
+for lib in ("libQt6Core.so.6", "libQt6Gui.so.6", "libQt6Qml.so.6", "libQt6Quick.so.6"):
+    ctypes.CDLL(lib, mode=g)
+ctypes.CDLL(sys.argv[1], mode=os.RTLD_NOW | os.RTLD_LOCAL)
+' "$plugin_so" 2>/dev/null; then
         pass "Caelestia QML plugin: dlopen(RTLD_NOW) succeeds"
     else
         fail "Caelestia QML plugin: dlopen(RTLD_NOW) fails (shell will not start)"
