@@ -45,7 +45,7 @@ fi
 pass() { printf ' %sPASS%s  %s\n' "$C_G" "$C_O" "$*"; PASS=$((PASS+1)); }
 warn() { printf ' %sWARN%s  %s\n' "$C_Y" "$C_O" "$*"; WARN=$((WARN+1)); }
 fail() { printf ' %sFAIL%s  %s\n' "$C_R" "$C_O" "$*"; FAIL=$((FAIL+1)); }
-head() { printf '\n%s== %s ==%s\n' "$C_B" "$*" "$C_O"; }
+vhead() { printf '\n%s== %s ==%s\n' "$C_B" "$*" "$C_O"; }
 
 # ---------------------------------------------------------------- helpers ---
 ver_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]; }
@@ -57,7 +57,7 @@ LIBDIR_ABS="$PREFIX/lib/$ARCH"
 QMLDIR_ABS="$LIBDIR_ABS/qt6/qml"
 
 # ------------------------------------------------------------- 1. layout ---
-head "Install layout"
+vhead "Install layout"
 [ -d "$CAE_ROOT" ] && pass "$CAE_ROOT exists" || { fail "$CAE_ROOT missing"; exit 1; }
 for f in "$ENV_FILE" "$CAE_ROOT/lock.env" "$MANIFEST" "$PREFIX/bin/qs" \
          "$CAE_ROOT/venv/bin/caelestia"; do
@@ -69,7 +69,7 @@ else
     fail "multiarch libdir $LIBDIR_ABS missing (was the install run on a different arch?)"
 fi
 if [ -d "$QMLDIR_ABS/Caelestia" ]; then
-    pass "QML module: $QMLDIR_REL/Caelestia"
+    pass "QML module: $QMLDIR_ABS/Caelestia"
 else
     fail "QML module dir $QMLDIR_ABS/Caelestia missing"
 fi
@@ -77,7 +77,7 @@ fi
     || warn "Quickshell QML modules not in prefix (system quickshell in use?)"
 
 # ------------------------------------------------------ 2. env + wrappers ---
-head "Environment and wrappers"
+vhead "Environment and wrappers"
 if bash -c ". '$ENV_FILE' && : \$QML2_IMPORT_PATH" 2>/dev/null; then
     pass "env file sources cleanly"
 else
@@ -99,7 +99,7 @@ else
 fi
 
 # --------------------------------------------------------- 3. linkage -------
-head "Dynamic linking (system symbols untouched, private libs resolved)"
+vhead "Dynamic linking (system symbols untouched, private libs resolved)"
 check_ldd() {
     local label="$1" bin="$2"
     local out
@@ -112,7 +112,8 @@ check_ldd() {
     # Prove isolation: every Caelestia-owned library must come from the prefix.
     local ours
     ours="$(grep "=> $PREFIX/" <<<"$out" | wc -l)"
-    [ "$ours" -gt 0 ] && pass "$label: $ours lib(s) served from private prefix"
+    if [ "$ours" -gt 0 ]; then pass "$label: $ours lib(s) served from private prefix"; fi
+    return 0
 }
 libso="$(find "$LIBDIR_ABS" -maxdepth 1 -name 'libcaelestia.so.*' 2>/dev/null | head -n1)"
 [ -n "$libso" ] && check_ldd "libcaelestia ($(basename "$libso"))" "$libso" \
@@ -123,7 +124,7 @@ qs_plugin="$(find "$QMLDIR_ABS/Caelestia" -maxdepth 1 -name '*.so' 2>/dev/null |
 [ -x "$PREFIX/bin/qs" ] && check_ldd "quickshell" "$PREFIX/bin/qs"
 
 # ------------------------------------------------- 4. system version gates --
-head "System version gates"
+vhead "System version gates"
 qt_ver="$(upstream_version "$(dpkg_version libqt6core6t64)")"
 wp_ver="$(upstream_version "$(dpkg_version wayland-protocols)")"
 py_ver="$(python3 -c 'import platform; print(platform.python_version())' 2>/dev/null || echo '?')"
@@ -140,7 +141,7 @@ ver_ge "$py_ver" "3.13" && pass "python3 $py_ver >= 3.13" \
     || fail "python3 $py_ver < 3.13 (cli gate)"
 
 # --------------------------------------- 5. live shell + IPC (needs session) -
-head "Live shell & IPC"
+vhead "Live shell & IPC"
 if [ "$QUICK" = "1" ]; then
     warn "skipped (--quick)"
 elif [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
@@ -171,7 +172,7 @@ else
 fi
 
 # ------------------------------------------------------ 6. python + node ----
-head "Python venv / Node layer"
+vhead "Python venv / Node layer"
 if "$CAE_ROOT/venv/bin/pip" check >/dev/null 2>&1; then
     pass "venv pip check: dependency graph consistent"
 else
@@ -188,7 +189,7 @@ vsix="$(find "$PREFIX/share/caelestia/extensions" -name '*.vsix' 2>/dev/null | h
     || warn "no .vsix artifact (build skipped or failed — check install log)"
 
 # ------------------------------------------------------ 7. fonts + sudoers --
-head "Fonts & sudoers"
+vhead "Fonts & sudoers"
 if fc-list 2>/dev/null | grep -q "Material Symbols Rounded"; then
     pass "font: Material Symbols Rounded (icon glyphs)"
 else
@@ -209,7 +210,7 @@ else
 fi
 
 # ------------------------------------------------------ 8. apt drift --------
-head "APT drift vs install manifest"
+vhead "APT drift vs install manifest"
 if [ -f "$MANIFEST" ]; then
     drift=0
     while IFS='=' read -r key val; do

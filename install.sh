@@ -90,7 +90,7 @@ DEFAULT_QS_REF="v0.2.1"             # 2025-10-11, 1 commit after flake pin f7597
 DEFAULT_DOTS_REF="1a69a48730842c5e77b746d751ac337edd20b796"  # 2025-09-01, era-matched dotfiles
 
 # --- Pinned Node.js layer (needed only for the TypeScript integrations) -----
-readonly NODE_VERSION="v26.13.0"
+NODE_VERSION="v26.13.0"
 readonly NODE_SHA_X64="d28a96af6c38596f6d9d97c0ee531c13d238d757742387d1928de822d959e997"
 readonly NODE_SHA_ARM64="406fe3fbde1c054adff8b297c16fdb5af6659db327c1ac8acd46b56ef1af9a92"
 
@@ -471,7 +471,7 @@ may now be buildable — review the lock file (default pins stay on the tested s
             || die "curl is required (apt install curl) and could not be installed."
     fi
     local need_kb=2500000 avail_kb   # ~2.5 GB for sources, builds, node, fonts
-    avail_kb="$(df -P --output=avail /opt | tail -n1 | tr -d ' ')"
+    avail_kb="$(df --output=avail /opt | tail -n1 | tr -d ' ')"
     [ "$avail_kb" -ge "$need_kb" ] || warn "Low disk space on /opt: ${avail_kb}kB available \
 (recommended >= 2.5 GB)."
 
@@ -612,6 +612,7 @@ stage_node_layer() {
         esac
         tarball="node-$NODE_VERSION-linux-$arch_tag.tar.xz"
         log "Downloading $tarball ..."
+        mkdir -p "$NODE_ROOT"
         curl -fsSL -o "$NODE_ROOT/$tarball" "https://nodejs.org/dist/$NODE_VERSION/$tarball"
         printf '%s  %s\n' "$sha" "$NODE_ROOT/$tarball" | sha256sum -c - \
             || die "Node tarball SHA256 mismatch — refusing to install."
@@ -860,6 +861,7 @@ stage_cli() {
               "$PREFIX/share/fish/vendor_completions.d/"
     fi
 
+    ln -sfn "$VENV/bin/caelestia" "$PREFIX/bin/caelestia"
     "$VENV/bin/caelestia" --version >/dev/null || true
     ok "cli installed into isolated venv: $VENV"
 }
@@ -1010,6 +1012,7 @@ prune_backups() {
         i=$((i + 1))
         [ "$i" -gt "$keep" ] && rm -rf -- "$d" && log "pruned old backup $d"
     done < <(ls -1dt "$BACKUPS"/"$kind"-* 2>/dev/null || true)
+    return 0
 }
 
 stage_integrate() {
