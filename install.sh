@@ -754,6 +754,20 @@ stage_lib() {
     fi
     cmake_build_install "$b" "caelestia-lib"
 
+    # Remove the core library's unversioned linker symlink from the lib
+    # dir. The QML module's backing library is also named
+    # libcaelestia.so and lives in the QML dir; while the symlink
+    # exists, the loader resolves the QML plugin's dependency to the
+    # core library (the lib dir precedes $ORIGIN in the search path)
+    # and the plugin fails to load with an undefined
+    # qml_register_types_Caelestia symbol. The symlink is a link-time
+    # artifact only; runtime consumers use the versioned soname
+    # libcaelestia.so.0, and later build stages do not link the lib.
+    if [ -L "$LIBDIR_ABS/libcaelestia.so" ]; then
+        rm -f "$LIBDIR_ABS/libcaelestia.so"
+        log "lib: removed shadowing unversioned symlink $LIBDIR_ABS/libcaelestia.so (see comment above)."
+    fi
+
     # sudo(8) ignores files containing a dot in sudoers.d — normalize name
     # and permissions of whatever the upstream install produced (covers any
     # future "*.sudoers" or similar dotted names, not just today's).
@@ -782,6 +796,26 @@ stage_shell() {
     stage_banner "shell (QML desktop shell, $SHELL_REF)"
     displacement_guard
     local b="$BUILD/shell"
+
+    # Qt 6.8 compatibility: shell v1.1.1 loads two Qt 6.9-only QML
+    # features (RectangularShadow in Elevation.qml, DelegateChooser
+    # via its Qt 6.9 home in QtQml.Models) and fails to load its
+    # configuration on Parrot's Qt 6.8.2. The kit ships
+    # patches/shell-qt68-compat.patch; apply it idempotently, the same
+    # way as the lib patch in stage_lib.
+    local shell_patch="$KIT_DIR/patches/shell-qt68-compat.patch"
+    if [ -f "$shell_patch" ]; then
+        if git -C "$SRC/shell" apply --reverse --check "$shell_patch" >/dev/null 2>&1; then
+            log "shell: Qt 6.8 compat patch already applied, skipping."
+        elif git -C "$SRC/shell" apply --check "$shell_patch" >/dev/null 2>&1; then
+            git -C "$SRC/shell" apply "$shell_patch"
+            ok "shell: applied Qt 6.8 compat patch (patches/shell-qt68-compat.patch)."
+        else
+            die "shell: patches/shell-qt68-compat.patch does not apply to the shell checkout in $SRC/shell. The pin and the patch are out of sync; refusing to guess."
+        fi
+    else
+        warn "shell: patches/shell-qt68-compat.patch not found next to install.sh. Installing unpatched sources (shell will not load on Qt < 6.9)."
+    fi
     # v1.1.1 install destinations are prefix-RELATIVE cache strings whose
     # upstream defaults are Arch-style ("usr/lib/qt6/qml"). Point every one of
     # them at our multiarch layout inside the staging prefix.

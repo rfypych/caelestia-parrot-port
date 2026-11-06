@@ -1,0 +1,86 @@
+Caelestia shell: Qt 6.8 compatibility patch
+============================================
+
+Applies to: caelestia shell pinned at v1.1.1 (e405bf8)
+Applied by: install.sh, stage_shell (idempotent, skipped when already applied)
+
+Shell v1.1.1 is the last release that builds against Qt 6.8, but two of
+its QML files use things that only exist in Qt 6.9, so the shell fails
+to load its configuration on Parrot's Qt 6.8.2:
+
+1. components/effects/Elevation.qml uses RectangularShadow from
+   QtQuick.Effects, a type introduced in Qt 6.9. This patch rewrites
+   Elevation on top of MultiEffect (available since Qt 6.5), keeping
+   the exact public surface every consumer sets: level, dp, radius.
+   The shadow is rendered by MultiEffect over a rounded rectangle
+   source, with the same colour, blur curve and vertical offset.
+2. modules/bar/Bar.qml uses DelegateChooser without an import. The
+   type moved to QtQml.Models in Qt 6.9; on Qt 6.8 it still lives in
+   Qt.labs.qmlmodels. This patch adds `import Qt.labs.qmlmodels`,
+   which also exists on Qt 6.9+, so the file loads on both.
+
+Proven live on Parrot Security 7.4, Qt 6.8.2 (KDE Plasma Wayland
+session): with this patch the full shell configuration loads and the
+bar renders. Companion fix in install.sh stage_lib: the core library's
+unversioned libcaelestia.so symlink must not shadow the QML backing
+library of the same name, or the Caelestia QML plugin fails to load
+with an undefined qml_register_types_Caelestia symbol.
+
+diff --git a/components/effects/Elevation.qml b/components/effects/Elevation.qml
+index fb29f16..d88ddeb 100644
+--- a/components/effects/Elevation.qml
++++ b/components/effects/Elevation.qml
+@@ -3,14 +3,36 @@ import qs.services
+ import QtQuick
+ import QtQuick.Effects
+ 
+-RectangularShadow {
++// Qt 6.8 compatibility: upstream uses RectangularShadow from
++// QtQuick.Effects, a type that only exists in Qt 6.9+. This replacement
++// renders the same elevation shadow with MultiEffect (available since
++// Qt 6.5) over a rounded rectangle source. The public surface is
++// unchanged: level, dp and radius, as set by every consumer.
++Item {
++    id: root
++
+     property int level
+     property real dp: [0, 1, 3, 6, 8, 12][level]
++    property real radius: 0
++
++    Rectangle {
++        id: shadowSource
+ 
+-    color: Qt.alpha(Colours.palette.m3shadow, 0.7)
+-    blur: (dp * 5) ** 0.7
+-    spread: -dp * 0.3 + (dp * 0.1) ** 2
+-    offset.y: dp / 2
++        anchors.fill: parent
++        radius: root.radius
++        color: "black"
++        visible: false
++    }
++
++    MultiEffect {
++        anchors.fill: parent
++        source: shadowSource
++        shadowEnabled: true
++        shadowColor: Qt.alpha(Colours.palette.m3shadow, 0.7)
++        blurMax: 64
++        shadowBlur: Math.min(1, ((root.dp * 5) ** 0.7) / 64)
++        shadowVerticalOffset: root.dp / 2
++    }
+ 
+     Behavior on dp {
+         Anim {}
+diff --git a/modules/bar/Bar.qml b/modules/bar/Bar.qml
+index 0382b5d..ce741f4 100644
+--- a/modules/bar/Bar.qml
++++ b/modules/bar/Bar.qml
+@@ -8,6 +8,7 @@ import "components/workspaces"
+ import Quickshell
+ import QtQuick
+ import QtQuick.Layouts
++import Qt.labs.qmlmodels
+ 
+ ColumnLayout {
+     id: root

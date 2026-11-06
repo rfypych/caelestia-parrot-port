@@ -122,6 +122,20 @@ qs_plugin="$(find "$QMLDIR_ABS/Caelestia" -maxdepth 1 -name '*.so' 2>/dev/null |
 [ -n "$qs_plugin" ] && check_ldd "shell QML plugin" "$qs_plugin" \
     || warn "no binary plugin in QML dir (pure-QML build?)"
 [ -x "$PREFIX/bin/qs" ] && check_ldd "quickshell" "$PREFIX/bin/qs"
+# The Caelestia QML plugin is dlopen()ed when the shell starts; plain
+# ldd misses undefined symbols that only fail at load time (this exact
+# failure shipped once: qml_register_types_Caelestia, caused by the
+# core library's unversioned symlink shadowing the QML backing
+# library). Probe a real dlopen with RTLD_NOW via python3 (the kit
+# already requires python3 >= 3.13).
+plugin_so="$QMLDIR_ABS/Caelestia/libcaelestiaplugin.so"
+if [ -f "$plugin_so" ]; then
+    if python3 -c 'import ctypes, os, sys; ctypes.CDLL(sys.argv[1], mode=os.RTLD_NOW | os.RTLD_LOCAL)' "$plugin_so" 2>/dev/null; then
+        pass "Caelestia QML plugin: dlopen(RTLD_NOW) succeeds"
+    else
+        fail "Caelestia QML plugin: dlopen(RTLD_NOW) fails (shell will not start)"
+    fi
+fi
 
 # ------------------------------------------------- 4. system version gates --
 vhead "System version gates"
