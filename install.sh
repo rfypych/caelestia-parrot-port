@@ -532,6 +532,12 @@ Screen recording will use wf-recorder (installed)."
     if [ "$HYPR_WANTED" = "1" ]; then
         if apt-get install -y --no-install-recommends hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk; then
             ok "Hyprland + portals installed."
+        elif grep -rqs 'echo-backports' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
+            && apt-get install -y -t echo-backports --no-install-recommends hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk; then
+            # On Parrot the echo-main Hyprland conflicts with the
+            # backports hypr* libraries (libhyprlang and friends); the
+            # consistent set lives in echo-backports.
+            ok "Hyprland + portals installed (from echo-backports)."
         else
             warn "Hyprland is not available from your current apt sources. On plain \
 Debian it lives in trixie-backports; on Parrot enable it with:
