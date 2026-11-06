@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: 794px 1123px; margin: 0; }
+  :root {
+    --c-bg: #0a1628;      /* deep blue night sky */
+    --c-accent: #4da8da;  /* luminous bright blue */
+    --c-text: #e8f0f8;    /* cool white */
+    --c-muted: #7a9bb8;   /* blue-gray */
+    --c-glow: #2d7ab3;    /* mid blue */
+  }
+  html, body {
+    margin: 0; padding: 0; width: 794px; height: 1123px;
+    background:
+      radial-gradient(circle at 14% 10%, rgba(77, 168, 218, 0.07), transparent 42%),
+      radial-gradient(circle at 86% 92%, rgba(45, 122, 179, 0.08), transparent 46%),
+      var(--c-bg);
+    color: var(--c-text);
+    font-family: 'Inter', 'Liberation Sans', sans-serif;
+  }
+  @media screen {
+    html { height: auto; display: flex; justify-content: center; min-height: 100vh; background: var(--c-bg); }
+    body { transform-origin: top center; scale: min(1, calc(100vw / 794), calc(100vh / 1123)); margin: 0 auto; box-shadow: 0 0 60px rgba(0,0,0,0.4); }
+  }
+  .cover { width: 794px; height: 1123px; position: relative; box-sizing: border-box; }
+
+  /* Layer 2 — luminous rectangular frame */
+  .frame {
+    position: absolute; left: 60px; right: 60px; top: 80px; bottom: 80px;
+    border: 2px solid var(--c-accent); pointer-events: none;
+  }
+
+  /* Layer 3 — content */
+  .kicker {
+    position: absolute; left: 104px; top: 135px;
+    font-size: 11pt; font-weight: 300; color: var(--c-accent);
+    letter-spacing: 5px; text-transform: uppercase;
+  }
+  .title {
+    position: absolute; left: 104px; top: 236px;
+    font-family: 'Playfair Display', 'FreeSerif', serif;
+    font-size: 50pt; font-weight: 900; line-height: 1.15;
+    color: var(--c-text); max-width: 600px;
+    text-shadow: 0 0 24px rgba(77, 168, 218, 0.25);
+  }
+  .summary {
+    position: absolute; left: 104px; top: 495px;
+    font-size: 15pt; font-weight: 300; line-height: 1.7;
+    color: var(--c-muted); max-width: 520px;
+  }
+  .org {
+    position: absolute; left: 104px; top: 730px;
+    font-size: 18pt; font-weight: 400; color: var(--c-text);
+  }
+  .org-sub {
+    position: absolute; left: 104px; top: 775px;
+    font-size: 12pt; font-weight: 300; color: var(--c-muted);
+  }
+  .date {
+    position: absolute; left: 104px; top: 975px;
+    font-size: 10pt; font-weight: 300; color: var(--c-muted);
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+  <div class="cover">
+    <div class="frame"></div>
+    <div class="kicker">Porting &amp; Deployment Blueprint</div>
+    <div class="title">Caelestia<br>on Parrot OS</div>
+    <div class="summary">
+      A production-grade porting strategy and installer for the four-component
+      Caelestia desktop ecosystem — C++ backing library, QML shell, TypeScript
+      integrations and Python CLI — onto Parrot OS Home (Debian&nbsp;13) with
+      zero contamination of base system libraries and fully reproducible,
+      rollback-safe deployment.
+    </div>
+    <div class="org">Linux Release Engineering</div>
+    <div class="org-sub">Parrot OS Home &middot; Debian 13 &ldquo;trixie&rdquo; &middot; /opt isolation architecture</div>
+    <div class="date">November 2026 &middot; Pin set: shell v1.1.1 &middot; quickshell v0.2.1</div>
+  </div>
+</body>
+</html>
