@@ -75,6 +75,9 @@ readonly LOCK_FILE="$CAE_ROOT/lock.env"
 readonly MANIFEST="$CAE_ROOT/manifest.env"
 readonly STATE="$CAE_ROOT/state"
 readonly ENV_FILE="$CAE_ROOT/env"
+# Directory this script lives in (the kit checkout). Bundled files such as
+# patches/ are resolved relative to it, never to the caller's cwd.
+readonly KIT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 # --- Component pins (the "tested-together" set; see DESIGN CONTRACT) --------
 readonly URL_LIB="https://github.com/caelestia-dots/lib"
@@ -119,7 +122,7 @@ APT_BUILD=(
     libdrm-dev libgbm-dev libegl-dev libgles-dev libvulkan-dev libxcb1-dev
     libwayland-dev wayland-protocols libpipewire-0.3-dev
     libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev libglib2.0-dev
-    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    libaubio-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
     python3-venv python3-pip
 )
 APT_RUNTIME=(
@@ -492,6 +495,18 @@ stage_apt_deps() {
     # Additive only: every package here is a standard trixie package and none
     # of them replaces or downgrades base system libraries.
     apt-get update -y
+
+    # Parrot quirk: when the runtime libraries already come from
+    # echo-backports (the default on Parrot), the matching -dev packages
+    # from the main release are uninstallable (they pin the exact older
+    # version), and one bad package fails the whole install below.
+    # Pre-install the three affected -dev packages from echo-backports
+    # when that release is configured.
+    if grep -rqs 'echo-backports' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then
+        apt-get install -y --no-install-recommends -t echo-backports \
+            libgbm-dev libpipewire-0.3-dev libxkbcommon-dev
+    fi
+
     apt-get install -y --no-install-recommends "${APT_BUILD[@]}" "${APT_RUNTIME[@]}"
 
     # Optional deps: install one by one, warn (never fail) when unavailable.
@@ -698,6 +713,25 @@ stage_lib() {
     stage_banner "lib (C++ backing library)"
     displacement_guard
     local b="$BUILD/lib"
+
+    # Qt 6.8 compatibility: the pinned lib commit uses four Qt 6.9-only
+    # APIs and does not compile against Parrot's Qt 6.8.2. The kit ships
+    # patches/lib-qt68-compat.patch (proven on Qt 6.8.2; every replacement
+    # also exists in Qt 6.9). Apply it idempotently: re-runs reuse the
+    # clone, so an already-applied patch is detected and skipped.
+    local lib_patch="$KIT_DIR/patches/lib-qt68-compat.patch"
+    if [ -f "$lib_patch" ]; then
+        if git -C "$SRC/lib" apply --reverse --check "$lib_patch" >/dev/null 2>&1; then
+            log "lib: Qt 6.8 compat patch already applied, skipping."
+        elif git -C "$SRC/lib" apply --check "$lib_patch" >/dev/null 2>&1; then
+            git -C "$SRC/lib" apply "$lib_patch"
+            ok "lib: applied Qt 6.8 compat patch (patches/lib-qt68-compat.patch)."
+        else
+            die "lib: patches/lib-qt68-compat.patch does not apply to the lib checkout in $SRC/lib. The pin and the patch are out of sync; refusing to guess."
+        fi
+    else
+        warn "lib: patches/lib-qt68-compat.patch not found next to install.sh. Building unpatched sources (expected to fail on Qt < 6.9)."
+    fi
     # lib has no git tags (rolling repo) and its CMake derives VERSION via
     # `git describe --tags` — which fails on a shallow/untagged clone. Pass an
     # explicit VERSION/GIT_REVISION so the build is deterministic; both end up

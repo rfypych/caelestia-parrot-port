@@ -1,0 +1,81 @@
+Caelestia lib: Qt 6.8 compatibility patch
+=========================================
+
+Applies to: caelestia lib pinned at d8f3b72b7bffa22ace30595c3190a9f8cedb7e44
+Applied by: install.sh, stage_lib (idempotent, skipped when already applied)
+
+The pinned lib commit uses four Qt 6.9-only APIs, so it does not compile
+with the Qt 6.8.2 shipped by Parrot OS (Debian 13). This patch replaces
+each use with the equivalent Qt 6.8 API. Every replacement also exists
+in Qt 6.9, so the patched sources still build on newer Qt.
+
+1. src/config/theme.cpp (2 spots)
+   QString + QStringView operator+ is Qt 6.9. Use QString + QString
+   via QStringView::toString().
+2. src/screenshot/image.cpp
+   QImage::flipped(Qt::Horizontal) is Qt 6.9. Use mirrored(true, false).
+3. src/screenshot/screenshot.cpp
+   Same QStringView concatenation fix as 1.
+4. src/theme/theme.cpp
+   QString::arg(int, 2, 16, u'0') is ambiguous on Qt 6.8. Pass QChar(u'0').
+
+Proven on Parrot Security 7.4, Qt 6.8.2: lib builds and installs, and the
+full installer plus verify.sh pass with this patch applied.
+
+diff --git a/src/config/theme.cpp b/src/config/theme.cpp
+index 6a120af..bb1f39d 100644
+--- a/src/config/theme.cpp
++++ b/src/config/theme.cpp
+@@ -10,11 +10,11 @@ ConfigTheme::ConfigTheme(Config* config)
+     : m_config(config) {}
+ 
+ bool ConfigTheme::targetEnabled(QStringView target) const {
+-    return m_config->value(u"theme.targets."_s + target, true).toBool();
++    return m_config->value(u"theme.targets."_s + target.toString(), true).toBool();
+ }
+ 
+ void ConfigTheme::setTargetEnabled(QStringView target, bool enabled) const {
+-    m_config->setValue(u"theme.targets."_s + target, enabled);
++    m_config->setValue(u"theme.targets."_s + target.toString(), enabled);
+ }
+ 
+ QString ConfigTheme::iconTheme() const {
+diff --git a/src/screenshot/image.cpp b/src/screenshot/image.cpp
+index 5fdecb8..4df62f6 100644
+--- a/src/screenshot/image.cpp
++++ b/src/screenshot/image.cpp
+@@ -47,7 +47,7 @@ QImage applyTransform(const QImage& image, uint32_t transform) {
+     const auto rotation = static_cast<int>(transform & 3u) * 90;
+ 
+     const auto result = rotation != 0 ? image.transformed(QTransform().rotate(rotation)) : image;
+-    return flipped ? result.flipped(Qt::Horizontal) : result;
++    return flipped ? result.mirrored(true, false) : result;
+ }
+ 
+ QImage composite(const QRect& region, const QList<QRect>& geometries, const QList<QImage>& parts) {
+diff --git a/src/screenshot/screenshot.cpp b/src/screenshot/screenshot.cpp
+index 01f78a3..0b35d55 100644
+--- a/src/screenshot/screenshot.cpp
++++ b/src/screenshot/screenshot.cpp
+@@ -114,7 +114,7 @@ QFuture<QString> cache(const QImage& image) {
+                 return bytes;
+             })
+         .then([key](bool) {
+-            return imageCache().dir() + u'/' + key + k_cacheExt;
++            return imageCache().dir() + u'/' + key + k_cacheExt.toString();
+         });
+ }
+ 
+diff --git a/src/theme/theme.cpp b/src/theme/theme.cpp
+index 6aafccf..688c06b 100644
+--- a/src/theme/theme.cpp
++++ b/src/theme/theme.cpp
+@@ -44,7 +44,7 @@ std::optional<QString> colourForm(QColor colour, QStringView form) {
+     if (form == u"hex")
+         return hex(colour);
+     if (form == u"hexalpha")
+-        return hex(colour) + u"%1"_s.arg(colour.alpha(), 2, 16, u'0');
++        return hex(colour) + u"%1"_s.arg(colour.alpha(), 2, 16, QChar(u'0'));
+     if (form == u"rgb")
+         return u"rgb(%1,%2,%3)"_s.arg(colour.red()).arg(colour.green()).arg(colour.blue());
+     if (form == u"rgbalpha")
