@@ -34,6 +34,14 @@ rule. Apply this overlay AFTER copying the dotfiles to ~/.config:
    `binde = Super, Minus, layoutmsg, splitratio -0.1` (same for
    Super+Equal with 0.1).
 
+5. App launch keybinds call `app2unit`, which this kit installs to
+   ~/.local/bin. The graphical session PATH set via
+   /etc/environment.d does NOT include ~/.local/bin, so every launch
+   bind (terminal, browser, editor, file manager) silently does
+   nothing. Add to `~/.config/hypr/hyprland/env.conf`:
+   `env = PATH, /home/<user>/.local/bin:/opt/caelestia/prefix/bin:/opt/caelestia/node/current/bin:/usr/local/bin:/usr/bin:/bin`
+   then `hyprctl reload`.
+
 Verify with `hyprctl reload` then `hyprctl configerrors` (must print
 nothing).
 
