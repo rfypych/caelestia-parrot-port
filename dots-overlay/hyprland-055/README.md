@@ -81,3 +81,9 @@ they source the env file themselves, in
 
 and apply the same wrapping to the shell restart keybinds in
 keybinds.conf (the `caelestia shell -d` binds).
+The same wrapping must also force ~/.local/bin into PATH (the
+shell itself launches apps through app2unit when the user clicks
+the launcher; a shell started without ~/.local/bin in PATH shows a
+working bar whose launcher silently cannot start anything):
+
+    exec-once = sh -c ". /opt/caelestia/env; export PATH=/home/<user>/.local/bin:$PATH; exec caelestia shell -d"
