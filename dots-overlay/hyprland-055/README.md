@@ -61,3 +61,23 @@ nothing).
   active session. Add a udev rule granting the video group (the
   user must be a member):
   ACTION=="add", SUBSYSTEM=="backlight", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness /sys/class/backlight/%k/bl_power", RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness /sys/class/backlight/%k/bl_power"
+
+## Shell does not autostart (grey empty desktop)
+
+The dots start the shell with a bare `exec-once = caelestia shell -d`.
+That only works if the session environment already carries the
+Caelestia variables (LD_LIBRARY_PATH, QML2_IMPORT_PATH,
+XDG_DATA_DIRS). On Parrot/Debian that environment comes from
+/etc/environment.d and is NOT reliably applied to the LightDM
+session leader: after a KDE logout/login cycle the exec-once child
+environment had no LD_LIBRARY_PATH and no prefix in XDG_DATA_DIRS,
+the shell died instantly with no log, and the user got a bare grey
+Hyprland with only a leftover app window. Wrap the start commands so
+they source the env file themselves, in
+~/.config/hypr/hyprland/execs.conf:
+
+    exec-once = sh -c ". /opt/caelestia/env && exec caelestia shell -d"
+    exec-once = sh -c ". /opt/caelestia/env && exec caelestia resizer -d"
+
+and apply the same wrapping to the shell restart keybinds in
+keybinds.conf (the `caelestia shell -d` binds).
